@@ -282,6 +282,31 @@
       text-align: center;
     }
 
+    /* Group selector */
+    .group-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .group-btn {
+      padding: 12px 8px;
+      background: #f0f0ee;
+      color: #555;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      text-align: center;
+    }
+    .group-btn:hover { background: #e6e6e2; }
+    .group-btn.active {
+      background: #1a1a1a;
+      color: #fff;
+      border-color: #1a1a1a;
+    }
+
     /* Spinner */
     .spinner {
       display: inline-block;
@@ -339,6 +364,12 @@
     </div>
   </div>
 
+  <!-- Group selector -->
+  <div class="card">
+    <label>프롬프트 그룹 선택</label>
+    <div class="group-selector" id="group-selector"></div>
+  </div>
+
   <button id="generate-btn" disabled onclick="generate()">설정샷 생성하기</button>
 
   <div id="status"></div>
@@ -350,20 +381,50 @@
   </div>
 
 <script>
-  // ✏️ 공통 프롬프트 — 4개 모두에 기본 적용
+  // ✏️ 공통 프롬프트 — 모든 그룹/프롬프트에 기본 적용
   const COMMON_PROMPT = "1:1비율 이미지로 한국 화장품 연출 이미지 제작, 제품 이미지는 최대한 손상없이";
 
-  // ✏️ 프롬프트 4개 — 여기에 입력해주세요
-  const PROMPTS = [
-    // "Create a premium skincare product shot using the provided product image. Place the product at the center with a clean white or soft gradient background. Add soft natural lighting, subtle shadows, and a luxurious atmosphere. Include minimal props such as water droplets or light reflections. The product must remain sharp and realistic, with high-end commercial photography style.",
-    // "심플하고 클린한 느낌",
-    // "Create a natural and soothing skincare scene using the provided product image. Place the product on a clean surface with soft natural elements like leaves, herbs, or water. Use warm natural lighting and a calm, minimal background. Emphasize gentle, safe, and dermatological skincare feeling.",
-    // "A minimalist cosmetic skincare bottle with a blank white label, resting on a clean white marble block with subtle grey veins. Soft natural sunlight filtering through a window, creating elegant and soft shadows. Bright and airy atmosphere, simple, luxurious, high-end commercial product photography, empty space for text, photorealistic, 8k, --ar 1:1 --style raw --v 6.0",
-    "A graceful female hand holding a glass dropper over a clear skincare ampoule bottle, dropping clear liquid, minimalist aesthetic, clean white background, soft studio lighting, water reflection, macro product photography, high key lighting, simple and pure, highly detailed, 8k, photorealistic, (clean and simple:1.2)",
-    "A delicate female hand gently holding a luxury skincare serum bottle, resting on a clean white marble surface, pristine and minimal, soft morning sunlight, natural shadow, product showcase, clean aesthetic, empty space, 85mm lens, masterpiece, ultra-detailed",
-    "A premium cosmetic glass jar with a sleek minimalist design, placed on an exposed textured grey marble surface. Clean neutral background, soft studio lighting with gentle highlights, sophisticated, elegant, modern luxury skincare vibe, commercial macro photography, hyper-detailed, 8k, --ar 1:1 --style raw --v 6.0",
-    "A minimalist cosmetic skincare bottle with a blank white label, resting on a clean white marble block with subtle grey veins. Soft natural sunlight filtering through a window, creating elegant and soft shadows. Bright and airy atmosphere, simple, luxurious, high-end commercial product photography, empty space for text, photorealistic, 8k, --ar 1:1 --style raw --v 6.0",
+  // ✏️ 프롬프트 그룹 4개 (그룹당 프롬프트 4개)
+  const PROMPT_GROUPS = [
+    {
+      name: "FACE",
+      prompts: [
+        "A graceful female hand holding a glass dropper over a clear skincare ampoule bottle, dropping clear liquid, minimalist aesthetic, clean white background, soft studio lighting, water reflection, macro product photography, high key lighting, simple and pure, highly detailed, 8k, photorealistic, (clean and simple:1.2)",
+        "A delicate female hand gently holding a luxury skincare serum bottle, resting on a clean white marble surface, pristine and minimal, soft morning sunlight, natural shadow, product showcase, clean aesthetic, empty space, 85mm lens, masterpiece, ultra-detailed",
+        "A premium cosmetic glass jar with a sleek minimalist design, placed on an exposed textured grey marble surface. Clean neutral background, soft studio lighting with gentle highlights, sophisticated, elegant, modern luxury skincare vibe, commercial macro photography, hyper-detailed, 8k, --ar 1:1 --style raw --v 6.0",
+        "A minimalist cosmetic skincare bottle with a blank white label, resting on a clean white marble block with subtle grey veins. Soft natural sunlight filtering through a window, creating elegant and soft shadows. Bright and airy atmosphere, simple, luxurious, high-end commercial product photography, empty space for text, photorealistic, 8k, --ar 1:1 --style raw --v 6.0",
+      ]
+    },
+    {
+      name: "HAND",
+      prompts: [
+        "프롬프트 2-1",
+        "프롬프트 2-2",
+        "프롬프트 2-3",
+        "프롬프트 2-4",
+      ]
+    },
+    {
+      name: "MASK",
+      prompts: [
+        "프롬프트 3-1",
+        "프롬프트 3-2",
+        "프롬프트 3-3",
+        "프롬프트 3-4",
+      ]
+    },
+    {
+      name: "그룹 4",
+      prompts: [
+        "프롬프트 4-1",
+        "프롬프트 4-2",
+        "프롬프트 4-3",
+        "프롬프트 4-4",
+      ]
+    },
   ];
+
+  let selectedGroup = 0;
 
   let uploadedFile = null;
   let currentModel = 'gemini-2.5-flash-image';
@@ -419,10 +480,23 @@
     setStatus(`모델 선택됨: ${modelId}`);
   }
 
+  function renderGroups() {
+    const container = document.getElementById('group-selector');
+    container.innerHTML = PROMPT_GROUPS.map((g, i) => `
+      <button class="group-btn ${i === selectedGroup ? 'active' : ''}" onclick="selectGroup(${i})">${g.name}</button>
+    `).join('');
+  }
+
+  function selectGroup(index) {
+    selectedGroup = index;
+    renderGroups();
+  }
+
   // Restore saved key
   window.addEventListener('DOMContentLoaded', () => {
     const saved = localStorage.getItem('mj_api_key');
     if (saved) document.getElementById('api-key').value = saved;
+    renderGroups();
     updateBtn();
   });
 
@@ -525,6 +599,8 @@
 
     const btn = document.getElementById('generate-btn');
     btn.disabled = true;
+
+    const PROMPTS = PROMPT_GROUPS[selectedGroup].prompts;
 
     // 결과 영역 초기화 — 각 슬롯에 로딩 표시
     const grid = document.getElementById('result-grid');
