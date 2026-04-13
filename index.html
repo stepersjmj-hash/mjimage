@@ -166,6 +166,13 @@
       word-break: break-all;
       cursor: pointer;
     }
+    .prompt-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1a1a1a;
+      cursor: pointer;
+    }
+    .prompt-title:hover { opacity: .6; }
     .prompt-text.collapsed {
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -209,6 +216,24 @@
     .prompt-actions button.del:hover { background: #ffe5e5; }
     .prompt-actions button.save { color: #1a1a1a; font-weight: 600; }
 
+    /* Edit fields wrapper */
+    .prompt-edit-fields {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .prompt-edit-title {
+      border: 1.5px solid #aaa;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      background: #fff;
+    }
+    .prompt-edit-title:focus { border-color: #1a1a1a; }
+
     /* Add prompt */
     .add-prompt-area {
       margin-top: 12px;
@@ -216,6 +241,19 @@
       flex-direction: column;
       gap: 8px;
     }
+    .add-prompt-area input[type="text"] {
+      width: 100%;
+      border: 1.5px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      outline: none;
+      background: #fafafa;
+      transition: border-color .2s;
+      box-sizing: border-box;
+    }
+    .add-prompt-area input[type="text"]:focus { border-color: #aaa; background: #fff; }
     .add-prompt-area textarea {
       width: 100%;
       border: 1.5px solid #e5e5e5;
@@ -375,6 +413,7 @@
     <div id="prompt-list"></div>
 
     <div class="add-prompt-area">
+      <input type="text" id="new-prompt-title" placeholder="제목 (선택)" />
       <textarea id="new-prompt-input" placeholder="새 프롬프트를 입력하세요..."></textarea>
       <button onclick="addPrompt()">추가</button>
     </div>
@@ -412,22 +451,24 @@
   const DEFAULT_COMMON = "1:1비율 이미지로 한국 화장품 연출 이미지 제작, 제품 이미지는 최대한 손상없이";
 
   const DEFAULT_PROMPTS_TEXT = [
-    "A graceful female hand holding a glass dropper over a clear skincare ampoule bottle, dropping clear liquid, minimalist aesthetic, clean white background, soft studio lighting, water reflection, macro product photography, high key lighting, simple and pure, highly detailed, 8k, photorealistic, (clean and simple:1.2)",
-    "A delicate female hand gently holding a luxury skincare serum bottle, resting on a clean white marble surface, pristine and minimal, soft morning sunlight, natural shadow, product showcase, clean aesthetic, empty space, 85mm lens, masterpiece, ultra-detailed",
-    "A premium cosmetic glass jar with a sleek minimalist design, placed on an exposed textured grey marble surface. Clean neutral background, soft studio lighting with gentle highlights, sophisticated, elegant, modern luxury skincare vibe, commercial macro photography, hyper-detailed, 8k, --ar 1:1 --style raw --v 6.0",
-    "A minimalist cosmetic skincare bottle with a blank white label, resting on a clean white marble block with subtle grey veins. Soft natural sunlight filtering through a window, creating elegant and soft shadows. Bright and airy atmosphere, simple, luxurious, high-end commercial product photography, empty space for text, photorealistic, 8k, --ar 1:1 --style raw --v 6.0",
+    { title: "드로퍼 앰플", text: "A graceful female hand holding a glass dropper over a clear skincare ampoule bottle, dropping clear liquid, minimalist aesthetic, clean white background, soft studio lighting, water reflection, macro product photography, high key lighting, simple and pure, highly detailed, 8k, photorealistic, (clean and simple:1.2)" },
+    { title: "세럼 대리석", text: "A delicate female hand gently holding a luxury skincare serum bottle, resting on a clean white marble surface, pristine and minimal, soft morning sunlight, natural shadow, product showcase, clean aesthetic, empty space, 85mm lens, masterpiece, ultra-detailed" },
+    { title: "유리 항아리", text: "A premium cosmetic glass jar with a sleek minimalist design, placed on an exposed textured grey marble surface. Clean neutral background, soft studio lighting with gentle highlights, sophisticated, elegant, modern luxury skincare vibe, commercial macro photography, hyper-detailed, 8k, --ar 1:1 --style raw --v 6.0" },
+    { title: "미니멀 스킨케어", text: "A minimalist cosmetic skincare bottle with a blank white label, resting on a clean white marble block with subtle grey veins. Soft natural sunlight filtering through a window, creating elegant and soft shadows. Bright and airy atmosphere, simple, luxurious, high-end commercial product photography, empty space for text, photorealistic, 8k, --ar 1:1 --style raw --v 6.0" },
   ];
 
   // ── 상태 ─────────────────────────────────────────────────
-  let promptList = [];  // { id, text, checked }
+  let promptList = [];  // { id, title?, text, checked }
   let nextId = 1;
   let uploadedFile = null;
   let currentModel = 'gemini-2.5-flash-image';
   const resultImages = new Map(); // slot index → data URL
 
   // ── 프롬프트 저장/불러오기 ────────────────────────────────
+  const PROMPTS_VERSION = 2; // title 필드 도입 버전
+
   function savePrompts() {
-    localStorage.setItem('mj_prompts', JSON.stringify({ list: promptList, nextId }));
+    localStorage.setItem('mj_prompts', JSON.stringify({ v: PROMPTS_VERSION, list: promptList, nextId }));
     localStorage.setItem('mj_common_prompt', document.getElementById('common-prompt').value);
   }
 
@@ -435,10 +476,16 @@
     const saved = localStorage.getItem('mj_prompts');
     if (saved) {
       const data = JSON.parse(saved);
-      promptList = data.list;
-      nextId = data.nextId;
+      if ((data.v ?? 1) >= PROMPTS_VERSION) {
+        promptList = data.list.map(p => ({ title: '', ...p }));
+        nextId = data.nextId;
+      } else {
+        // 구버전 데이터 → 기본값으로 재초기화
+        promptList = DEFAULT_PROMPTS_TEXT.map((p, i) => ({ id: i + 1, title: p.title ?? '', text: p.text, checked: true }));
+        nextId = DEFAULT_PROMPTS_TEXT.length + 1;
+      }
     } else {
-      promptList = DEFAULT_PROMPTS_TEXT.map((text, i) => ({ id: i + 1, text, checked: true }));
+      promptList = DEFAULT_PROMPTS_TEXT.map((p, i) => ({ id: i + 1, title: p.title ?? '', text: p.text, checked: true }));
       nextId = DEFAULT_PROMPTS_TEXT.length + 1;
     }
     const savedCommon = localStorage.getItem('mj_common_prompt');
@@ -457,7 +504,7 @@
       <div class="prompt-item" id="pi-${p.id}">
         <input type="checkbox" class="prompt-cb" ${p.checked ? 'checked' : ''}
           onchange="togglePrompt(${p.id})" />
-        <span class="prompt-text collapsed" onclick="toggleExpand(this)">${escHtml(p.text)}</span>
+        <span class="prompt-text collapsed" onclick="toggleExpand(this)">${p.title ? `<b class="prompt-title" onclick="event.stopPropagation();togglePrompt(${p.id})">${escHtml(p.title)}</b><br>${escHtml(p.text)}` : escHtml(p.text)}</span>
         <div class="prompt-actions">
           <button onclick="startEdit(${p.id})">수정</button>
           <button class="del" onclick="deletePrompt(${p.id})">삭제</button>
@@ -478,7 +525,11 @@
   // ── 프롬프트 조작 ─────────────────────────────────────────
   function togglePrompt(id) {
     const p = promptList.find(p => p.id === id);
-    if (p) p.checked = !p.checked;
+    if (p) {
+      p.checked = !p.checked;
+      const cb = document.querySelector(`#pi-${id} .prompt-cb`);
+      if (cb) cb.checked = p.checked;
+    }
     savePrompts();
     updateBtn();
   }
@@ -497,10 +548,13 @@
   }
 
   function addPrompt() {
+    const titleInput = document.getElementById('new-prompt-title');
     const input = document.getElementById('new-prompt-input');
+    const title = titleInput.value.trim();
     const text = input.value.trim();
     if (!text) return;
-    promptList.push({ id: nextId++, text, checked: true });
+    promptList.push({ id: nextId++, title, text, checked: true });
+    titleInput.value = '';
     input.value = '';
     savePrompts();
     renderPromptList();
@@ -512,7 +566,10 @@
     const item = document.getElementById(`pi-${id}`);
     item.innerHTML = `
       <input type="checkbox" class="prompt-cb" ${p.checked ? 'checked' : ''} disabled />
-      <textarea class="prompt-edit-area">${escHtml(p.text)}</textarea>
+      <div class="prompt-edit-fields">
+        <input type="text" class="prompt-edit-title" placeholder="제목 (선택)" value="${escHtml(p.title ?? '')}" />
+        <textarea class="prompt-edit-area">${escHtml(p.text)}</textarea>
+      </div>
       <div class="prompt-actions">
         <button class="save" onclick="saveEdit(${id})">저장</button>
         <button onclick="renderPromptList()">취소</button>
@@ -523,9 +580,11 @@
   function saveEdit(id) {
     const p = promptList.find(p => p.id === id);
     if (!p) return;
+    const titleEl = document.querySelector(`#pi-${id} .prompt-edit-title`);
     const ta = document.querySelector(`#pi-${id} .prompt-edit-area`);
     const text = ta.value.trim();
     if (!text) return;
+    p.title = titleEl ? titleEl.value.trim() : '';
     p.text = text;
     savePrompts();
     renderPromptList();
