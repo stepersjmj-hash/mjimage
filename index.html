@@ -529,6 +529,10 @@
   }
 
   function loadPrompts() {
+    // 공통 프롬프트를 먼저 설정해야 savePrompts() 호출 시 빈 값으로 덮어쓰지 않음
+    const savedCommon = localStorage.getItem('mj_common_prompt');
+    document.getElementById('common-prompt').value = savedCommon || DEFAULT_COMMON;
+
     const saved = localStorage.getItem('mj_prompts');
     if (saved) {
       const data = JSON.parse(saved);
@@ -549,11 +553,9 @@
       });
       if (added) savePrompts();
     } else {
-      promptList = DEFAULT_PROMPTS_TEXT.map((p, i) => ({ id: i + 1, title: p.title ?? '', text: p.text, checked: true }));
+      promptList = DEFAULT_PROMPTS_TEXT.map((p, i) => ({ id: i + 1, title: p.title ?? '', img: p.img ?? '', text: p.text, checked: true }));
       nextId = DEFAULT_PROMPTS_TEXT.length + 1;
     }
-    const savedCommon = localStorage.getItem('mj_common_prompt');
-    document.getElementById('common-prompt').value = savedCommon ?? DEFAULT_COMMON;
   }
 
   // ── 프롬프트 목록 렌더링 ──────────────────────────────────
