@@ -82,7 +82,10 @@
     <!-- 오른쪽: 결과 -->
     <div class="right-panel">
       <div id="result-wrap">
-        <h2>생성된 설정샷</h2>
+        <div class="result-header">
+          <h2>생성된 설정샷</h2>
+          <button id="batch-download-btn" onclick="batchDownloadAll()" style="display:none">전체 다운로드</button>
+        </div>
         <div class="result-grid" id="result-grid"></div>
       </div>
       <div id="result-placeholder">
@@ -101,7 +104,7 @@
   <!-- 라이트박스 -->
   <div id="lightbox" onclick="closeLightbox()">
     <span id="lightbox-close">&times;</span>
-    <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()" />
+    <img id="lightbox-img" src="" alt="" />
   </div>
 
   <script src="app.js"></script>

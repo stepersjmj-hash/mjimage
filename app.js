@@ -336,6 +336,7 @@ async function generate() {
   const btn = document.getElementById('generate-btn');
   btn.disabled = true;
   resultImages.clear();
+  updateBatchBtnVisibility();
 
   const grid = document.getElementById('result-grid');
   grid.className = 'result-grid' + (selected.length === 1 ? ' single' : '');
@@ -361,12 +362,13 @@ async function generate() {
         .then(imgSrc => {
           resultImages.set(i, imgSrc);
           document.getElementById(`slot-${i}`).innerHTML = `
-            <img src="${imgSrc}" alt="결과 ${i+1}" onclick="openImageInNewTab(${i})" style="cursor:zoom-in" />
+            <img src="${imgSrc}" alt="결과 ${i+1}" onclick="openResultLightbox(${i})" style="cursor:zoom-in" />
             <div class="prompt-label">${p.title ? escHtml(p.title) : (escHtml(p.text.slice(0, 40)) + (p.text.length > 40 ? '…' : ''))}</div>
             <button class="dl-btn" onclick="downloadImage(${i}, ${i+1})">다운로드</button>
           `;
           doneCount++;
           setStatus(`<span class="spinner"></span> ${doneCount} / ${selected.length} 완료...`);
+          updateBatchBtnVisibility();
         })
         .catch(err => {
           document.getElementById(`slot-${i}`).innerHTML = `
@@ -392,16 +394,10 @@ async function generate() {
 }
 
 // ── 결과 이미지 다운로드/열기 ─────────────────────────────
-function openImageInNewTab(slotIndex) {
+function openResultLightbox(slotIndex) {
   const src = resultImages.get(slotIndex);
   if (!src) return;
-  const [header, data] = src.split(',');
-  const mime = header.match(/:(.*?);/)[1];
-  const binary = atob(data);
-  const arr = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-  const blob = new Blob([arr], { type: mime });
-  window.open(URL.createObjectURL(blob), '_blank');
+  openLightbox(src);
 }
 
 function downloadImage(slotIndex, label) {
@@ -411,6 +407,44 @@ function downloadImage(slotIndex, label) {
   a.href = src;
   a.download = `mjimage_${Date.now()}_${label}.png`;
   a.click();
+}
+
+// ── 일괄 다운로드 ─────────────────────────────────────────
+function updateBatchBtnVisibility() {
+  const btn = document.getElementById('batch-download-btn');
+  if (!btn) return;
+  btn.style.display = resultImages.size > 0 ? 'inline-block' : 'none';
+  btn.textContent = resultImages.size > 1
+    ? `전체 다운로드 (${resultImages.size}장)`
+    : '전체 다운로드';
+}
+
+async function batchDownloadAll() {
+  if (resultImages.size === 0) return;
+  const btn = document.getElementById('batch-download-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+
+  // slotIndex 순서대로 정렬 후 순차 다운로드
+  const entries = Array.from(resultImages.entries()).sort((a, b) => a[0] - b[0]);
+  const ts = Date.now();
+  for (let k = 0; k < entries.length; k++) {
+    const [slotIndex, src] = entries[k];
+    const a = document.createElement('a');
+    a.href = src;
+    a.download = `mjimage_${ts}_${slotIndex + 1}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    btn.textContent = `다운로드 중... ${k + 1}/${entries.length}`;
+    // 브라우저의 연속 다운로드 차단 방지용 지연
+    if (k < entries.length - 1) {
+      await new Promise(r => setTimeout(r, 350));
+    }
+  }
+
+  btn.textContent = originalText;
+  btn.disabled = false;
 }
 
 // ── 초기화 ───────────────────────────────────────────────

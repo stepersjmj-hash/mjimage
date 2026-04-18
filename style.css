@@ -450,8 +450,32 @@ header p { margin-top: 8px; font-size: 13px; color: #888; }
 #result-wrap h2 {
   font-size: 13px; font-weight: 600; color: #555;
   text-transform: uppercase; letter-spacing: 0.6px;
-  margin-bottom: 16px; text-align: center;
+  text-align: center;
 }
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  position: relative;
+}
+#batch-download-btn {
+  position: absolute;
+  right: 0;
+  border: none;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .2s;
+  white-space: nowrap;
+}
+#batch-download-btn:hover { opacity: .85; }
+#batch-download-btn:disabled { opacity: .5; cursor: not-allowed; }
 .result-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
