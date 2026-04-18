@@ -1,1 +1,1 @@
-https://joomyungjin.github.io/mjimage/
+https://stepersjmj-hash.github.io/mjimage/
